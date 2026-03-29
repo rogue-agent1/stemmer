@@ -1,11 +1,11 @@
 # stemmer
 
-stemmer - Porter stemmer and simple lemmatizer for English.
-
-Zero-dependency, single-file Python CLI.
+Porter stemmer and basic text normalization.
 
 ## Usage
 
 ```bash
-python3 stemmer.py
+python3 stemmer.py test
 ```
+
+Zero dependencies. Python 3.8+.

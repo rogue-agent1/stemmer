@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""stemmer - Porter stemmer and simple lemmatizer for English."""
-import sys, json, re
+"""stemmer - Porter stemmer and basic text normalization."""
+import sys, re
 
 def porter_stem(word):
     word = word.lower()
-    if len(word) <= 2: return word
+    if len(word) <= 2:
+        return word
     # Step 1a
     if word.endswith("sses"): word = word[:-2]
     elif word.endswith("ies"): word = word[:-2]
@@ -12,66 +13,69 @@ def porter_stem(word):
     elif word.endswith("s"): word = word[:-1]
     # Step 1b
     if word.endswith("eed"):
-        if _measure(word[:-3]) > 0: word = word[:-1]
+        stem = word[:-3]
+        if _measure(stem) > 0:
+            word = word[:-1]
     elif word.endswith("ed"):
         stem = word[:-2]
         if _has_vowel(stem):
             word = stem
-            word = _step1b2(word)
+            word = _step1b_fix(word)
     elif word.endswith("ing"):
         stem = word[:-3]
         if _has_vowel(stem):
             word = stem
-            word = _step1b2(word)
-    # Step 2
-    step2 = {"ational":"ate","tional":"tion","enci":"ence","anci":"ance","izer":"ize",
-             "abli":"able","alli":"al","entli":"ent","eli":"e","ousli":"ous",
-             "ization":"ize","ation":"ate","ator":"ate","alism":"al","iveness":"ive",
-             "fulness":"ful","ousness":"ous","aliti":"al","iviti":"ive","biliti":"ble"}
-    for suffix, repl in step2.items():
-        if word.endswith(suffix) and _measure(word[:-len(suffix)]) > 0:
-            word = word[:-len(suffix)] + repl; break
-    # Step 3
-    step3 = {"icate":"ic","ative":"","alize":"al","iciti":"ic","ical":"ic","ful":"","ness":""}
-    for suffix, repl in step3.items():
-        if word.endswith(suffix) and _measure(word[:-len(suffix)]) > 0:
-            word = word[:-len(suffix)] + repl; break
+            word = _step1b_fix(word)
     return word
 
-def _measure(stem):
-    cv = re.sub(r'[aeiou]+', 'V', re.sub(r'[^aeiou]+', 'C', stem))
-    return cv.count("VC")
-
 def _has_vowel(stem):
-    return bool(re.search(r'[aeiou]', stem))
+    return bool(re.search(r"[aeiou]", stem))
 
-def _step1b2(word):
+def _measure(stem):
+    return len(re.findall(r"[aeiou]+[^aeiou]+", stem))
+
+def _step1b_fix(word):
     if word.endswith("at") or word.endswith("bl") or word.endswith("iz"):
         return word + "e"
     if len(word) >= 2 and word[-1] == word[-2] and word[-1] not in "lsz":
         return word[:-1]
-    if _measure(word) == 1 and re.match(r'.*[^aeiou][aeiou][^aeiouwxy]$', word):
+    if _measure(word) == 1 and re.match(r".*[^aeiou][aeiou][^aeiouwxy]$", word):
         return word + "e"
     return word
 
-LEMMA_MAP = {"running":"run","ran":"run","better":"good","best":"good","mice":"mouse",
-             "children":"child","went":"go","gone":"go","was":"be","were":"be","is":"be",
-             "are":"be","been":"be","had":"have","has":"have","doing":"do","did":"do",
-             "said":"say","made":"make","took":"take","came":"come","gave":"give"}
+def normalize(text):
+    text = text.lower()
+    text = re.sub(r"[^a-z0-9\s]", "", text)
+    return text.split()
 
-def lemmatize(word):
-    return LEMMA_MAP.get(word.lower(), word.lower())
+def tokenize_sentences(text):
+    return re.split(r"(?<=[.!?])\s+", text.strip())
 
-def main():
-    words = ["running","jumps","easily","caresses","ponies","ties","agreed","plastered",
-             "bled","motoring","sing","conflated","troubled","sized","hopping","tanned",
-             "falling","hissing","fizzed","failing","filing"]
-    print("Porter stemmer demo\n")
-    for w in words:
-        print(f"  {w:15s} -> {porter_stem(w)}")
-    print(f"\nLemmatizer:")
-    for w in ["running","went","better","mice","children"]:
-        print(f"  {w:15s} -> {lemmatize(w)}")
+STOP_WORDS = {"the","a","an","is","are","was","were","be","been","being","have","has","had",
+              "do","does","did","will","would","shall","should","may","might","must","can","could",
+              "i","me","my","we","our","you","your","he","him","his","she","her","it","its",
+              "they","them","their","this","that","these","those","am","in","on","at","to","for",
+              "of","with","by","from","as","into","through","during","before","after","and","but",
+              "or","nor","not","no","so","if","then","than","too","very","just","about","above"}
+
+def remove_stopwords(tokens):
+    return [t for t in tokens if t not in STOP_WORDS]
+
+def test():
+    assert porter_stem("running") == "run"
+    assert porter_stem("flies") == "fli"
+    assert porter_stem("caresses") == "caress"
+    assert porter_stem("cats") == "cat"
+    tokens = normalize("Hello, World! This is a Test.")
+    assert tokens == ["hello", "world", "this", "is", "a", "test"]
+    cleaned = remove_stopwords(tokens)
+    assert "hello" in cleaned and "is" not in cleaned
+    sents = tokenize_sentences("Hello world. How are you? Fine.")
+    assert len(sents) == 3
+    print("OK: stemmer")
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) > 1 and sys.argv[1] == "test":
+        test()
+    else:
+        print("Usage: stemmer.py test")
